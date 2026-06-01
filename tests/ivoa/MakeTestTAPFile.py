@@ -1,25 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[24]:
-
-
-import os
-
-os.environ["GAMMAPY_DATA"] = "/Users/tbylund/DATA/GAMMAPY_DATA"
-
-
 # # Setup 
 
-# In[11]:
-
-
 from pathlib import Path
-
 from pyvo import dal
-
-
-# In[13]:
 
 
 target_name = "Crab"
@@ -34,14 +19,8 @@ tap_result = tap_service.search(get_crab)
 
 # # Make obscore_table.fits.gz
 
-# In[22]:
-
-
 from astropy.table import Column, Table
 from gammapy.data.ivoa import to_obscore_table
-
-
-# In[66]:
 
 
 root_dir = Path(os.path.expandvars("$GAMMAPY_DATA")) / "hess-dl3-dr1/"
@@ -73,14 +52,7 @@ crabs.write("obscore_table.fits.gz", overwrite=False)
 
 
 # # Make split irf files
-
-# In[50]:
-
-
 from astropy.io import fits
-
-
-# In[73]:
 
 
 HDU_TYPES = {
@@ -94,11 +66,26 @@ HDU_TYPES = {
 out_pattern = "TapResult-{}-{}.fits.gz"
 
 
-# In[75]:
-
-
 ds = Table.read(root_dir / "hdu-index.fits.gz")
 data_dir = ds["FILE_DIR"][0]
+
+# # Make bundled irf files
+run_ids = ["23523", "23526", "23559", "23592"]
+for obsid in run_ids:
+    sel = (ds["OBS_ID"] == int(obsid)) & (ds["HDU_CLASS"] == "events")
+    input_fil = ds["FILE_NAME"][sel].pformat(show_name=False)[0]
+    out_hdus = []
+    with fits.open(root_dir / data_dir / str(input_fil)) as hdus:
+        out_hdus = []
+        for hdu in hdus:
+            hdu.data = None
+            out_hdus.append(hdu)
+
+        out_name = out_pattern.format(obsid, "event-bundle")
+        fits.HDUList(out_hdus).writeto(out_name)
+
+
+# # Make split irf files
 run_ids = ["23559", "23592"]
 for obsid in run_ids:
     sel = (ds["OBS_ID"] == int(obsid)) & (ds["HDU_CLASS"] == "events")
@@ -133,18 +120,12 @@ for obsid in run_ids:
 
 # # Make datalink.xml
 
-# In[92]:
-
-
 for idx, row in enumerate(tap_result):
     print(f"datalink_{idx}.xml")
     row.getdatalink().votable.to_xml(f"datalink_{idx}.xml")
 
 
 # # Make split_datalink.xml
-
-# In[125]:
-
 
 replace = {
     0: "obs_id",
@@ -170,11 +151,7 @@ for idx, line in enumerate(dltxt):
     edited.append(line)
 
 with open("split_datalink_1.xml","w") as fil:
-    fil.writelines(edited)    
-
-
-# In[127]:
-
+    fil.writelines(edited)
 
 with open("datalink_3.xml", "r") as fil:
     dltxt = fil.readlines()
@@ -192,11 +169,4 @@ for idx, line in enumerate(dltxt):
     edited.append(line)
 
 with open("split_datalink_2.xml","w") as fil:
-    fil.writelines(edited)    
-
-
-# In[ ]:
-
-
-
-
+    fil.writelines(edited)
